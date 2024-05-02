@@ -4,7 +4,18 @@ vim-matlab
 An alternative to Matlab's default editor for Vim users. I currently use it to control Comsol by running ```comsol mphserver```, launching the MATLAB REPL in Vim and running ```mphstart``` to connect them. 
 Edited to function with Python 3 with fixes from Thieso from this [issue](https://github.com/daeyun/vim-matlab/issues/36).
 
-Read the readme [upstream](https://github.com/daeyun/vim-matlab) for an overview.
+Read the readme [upstream](https://github.com/daeyun/vim-matlab) for an overview. 
+
+Install using Lazyvim:
+```
+{
+    "daeyun/vim-matlab",
+    build = ":UpdateRemotePlugins",
+    init = function()
+      vim.g.matlab_auto_mappings = 0
+    end,
+  },
+```
 
 In this fork, a few (likely badly implemented) changes are introduced. For example, when code is run, the cursor moves to the REPL, down to the bottom and back to the window you were in previously - this way, you can see the last executed code. If you are not running the split in vim, this might not work.
 
