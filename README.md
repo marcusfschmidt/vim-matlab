@@ -9,7 +9,7 @@ Read the readme [upstream](https://github.com/daeyun/vim-matlab) for an overview
 Install using Lazyvim:
 ```
 {
-    "daeyun/vim-matlab",
+    "marcusfschmidt/vim-matlab",
     build = ":UpdateRemotePlugins",
     init = function()
       vim.g.matlab_auto_mappings = 0
