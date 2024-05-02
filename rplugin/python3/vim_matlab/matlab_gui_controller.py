@@ -6,21 +6,21 @@ import re
 import pyperclip
 
 from input_controller import disable_input
-from io_helper import find_plugin_matlab_path
+from vim_matlab.io_helper import find_plugin_matlab_path
 from xdotool import Xdotool
 
 """
 DEPRECATED. Use matlab_cli_controller.
 """
 
-__author__ = 'Daeyun Shin'
+__author__ = "Daeyun Shin"
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-class MatlabGuiController():
+class MatlabGuiController:
     @disable_input
     def __init__(self):
         self.device_ids = self.find_device_ids()
@@ -49,7 +49,7 @@ class MatlabGuiController():
         """
         for _ in range(self.key_handler_queue.qsize()):
             self.key_handler_queue.get(False)
-        self.move_cursor(row, col, filename, 'perform-run-cell')
+        self.move_cursor(row, col, filename, "perform-run-cell")
         self.key_handler_queue.get(True, 5)
 
     @disable_input
@@ -61,9 +61,10 @@ class MatlabGuiController():
         """
         if is_invisible:
             command = "evalAndClean('{};');\n".format(
-                ';'.join(commands).replace("'", "''"))
+                ";".join(commands).replace("'", "''")
+            )
         else:
-            delimiter = '\n' if is_multiline else ';'
+            delimiter = "\n" if is_multiline else ";"
             command = "{}\n".format(delimiter.join(commands))
         return self.__type_in_window(self.command_window_id, command)
 
@@ -76,17 +77,23 @@ class MatlabGuiController():
         operation completes.
         :return:
         """
-        set_cursor_command = 'setEditorCursor({}, {})'.format(row, col)
+        set_cursor_command = "setEditorCursor({}, {})".format(row, col)
 
         if callback_name is None:
-            callback_command = ''
+            callback_command = ""
         else:
             callback_command = "sendTcp({}, '{}')".format(
-                self.key_handler_port, callback_name)
+                self.key_handler_port, callback_name
+            )
 
         return self.run_commands(
-            ["openDocumentInEditor('{}')".format(filename), set_cursor_command,
-             callback_command], True)
+            [
+                "openDocumentInEditor('{}')".format(filename),
+                set_cursor_command,
+                callback_command,
+            ],
+            True,
+        )
 
     def find_matlab_window_ids(self):
         """
@@ -94,11 +101,13 @@ class MatlabGuiController():
         :return: [command widow id, editor window id]
         :raise Exception:
         """
-        self.command_window_id = self.xdotool. \
-            find_windows('^Command Window', 'com-mathworks-util-PostVMInit')[0]
+        self.command_window_id = self.xdotool.find_windows(
+            "^Command Window", "com-mathworks-util-PostVMInit"
+        )[0]
 
-        self.editor_window_id = self.xdotool. \
-            find_windows('^Editor', 'com-mathworks-util-PostVMInit')[0]
+        self.editor_window_id = self.xdotool.find_windows(
+            "^Editor", "com-mathworks-util-PostVMInit"
+        )[0]
 
         return self.editor_window_id, self.command_window_id
 
@@ -106,11 +115,14 @@ class MatlabGuiController():
         """
         :return: list of all device ids from xinput, excluding XTEST devices.
         """
-        t = check_output('xinput list --short', shell=True)
-        id_pattern = r'id=(\d+)'
-        xtest_id_pattern = r'XTEST[^\n]+id=(\d+)'
-        device_ids = list(set(re.findall(id_pattern, t)).difference(
-            set(re.findall(xtest_id_pattern, t))))
+        t = check_output("xinput list --short", shell=True)
+        id_pattern = r"id=(\d+)"
+        xtest_id_pattern = r"XTEST[^\n]+id=(\d+)"
+        device_ids = list(
+            set(re.findall(id_pattern, t)).difference(
+                set(re.findall(xtest_id_pattern, t))
+            )
+        )
         return device_ids
 
     @disable_input
@@ -133,17 +145,17 @@ class MatlabGuiController():
         """
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('localhost', 0))
+        self.sock.bind(("localhost", 0))
         _, self.key_handler_port = self.sock.getsockname()
 
         self.key_handler_queue = multiprocessing.Queue()
         self.key_handler = multiprocessing.Process(
             target=self.__key_request_handler,
-            args=(self.sock,
-                  [self.command_window_id,
-                   self.editor_window_id,
-                   self.vim_window_id],
-                  self.key_handler_queue)
+            args=(
+                self.sock,
+                [self.command_window_id, self.editor_window_id, self.vim_window_id],
+                self.key_handler_queue,
+            ),
         )
         self.key_handler.start()
         self.key_handler_queue.get(True, 5)
@@ -161,10 +173,10 @@ class MatlabGuiController():
         while True:
             client_sock, _ = sock.accept()
             msg = client_sock.recv(1024).strip()
-            if msg == 'perform-run-cell':
+            if msg == "perform-run-cell":
                 self.xdotool.activate_window(window_ids[0])
                 self.xdotool.activate_window(window_ids[1])
-                self.xdotool.enter_keys(['Ctrl+KP_Enter'])
+                self.xdotool.enter_keys(["Ctrl+KP_Enter"])
                 self.xdotool.activate_window(window_ids[2])
                 queue.put(True)
             client_sock.close()
@@ -173,7 +185,7 @@ class MatlabGuiController():
     @disable_input
     def __type_in_window(self, window_id, string):
         pyperclip.copy(string)
-        self.xdotool.enter_keys(['Ctrl+y'], window_id)
+        self.xdotool.enter_keys(["Ctrl+y"], window_id)
 
     @disable_input
     def __setup_matlab_path(self):

@@ -1,13 +1,12 @@
 import time
 from threading import Timer
 
-from io_helper import find_plugin_matlab_path
+from vim_matlab.io_helper import find_plugin_matlab_path
 
-
-__author__ = 'daeyun'
+__author__ = "daeyun"
 
 import socket
-import logger
+import vim_matlab.logger as logger
 
 
 class MatlabCliController:
@@ -21,12 +20,12 @@ class MatlabCliController:
         Timer(5, self.setup_matlab_path).start()
 
     def run_code(self, lines):
-        code = ','.join(lines)
+        code = ",".join(lines)
 
         num_retry = 0
         while num_retry < 3:
             try:
-                self.sock.sendall(code + "\n")
+                self.sock.sendall(bytes(code + "\n", "utf-8"))
                 logger.log.info(code)
                 break
             except Exception as ex:
@@ -52,4 +51,5 @@ class MatlabCliController:
         self.run_code(["help {};".format(name)])
 
     def send_ctrl_c(self):
-        self.sock.sendall("cancel\n")
+        self.sock.sendall(bytes("cancel\n", "utf-8"))
+        # self.sock.sendall("cancel\n", "")

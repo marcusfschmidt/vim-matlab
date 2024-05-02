@@ -1,6 +1,6 @@
 import re
 
-__author__ = 'Daeyun Shin'
+__author__ = "Daeyun Shin"
 
 vim = None
 
@@ -8,12 +8,14 @@ vim = None
 class PythonVimUtils(object):
     comment_pattern = re.compile(r"(^(?:(?<![\.\w\)\}\]])'[^']*'|[^%]*?)*)(%.*|$)")
     cell_header_pattern = re.compile(
-        r'(?:^%%(?:[^%]|$)|^[ \t]*?(?<!%)[ \t]*?(?:function|classdef)\s+)')
-    ellipsis_pattern = re.compile(r'^(.*[^\s])\s*\.\.\.\s*$')
+        r"(?:^%%(?:[^%]|$)|^[ \t]*?(?<!%)[ \t]*?(?:function|classdef)\s+)"
+    )
+    ellipsis_pattern = re.compile(r"^(.*[^\s])\s*\.\.\.\s*$")
     variable_pattern = re.compile(r"\b((?:[a-zA-Z_]\w*)*\.?[a-zA-Z_]*\w*)")
     function_block_pattern = re.compile(
-        r'(?:^|\n[ \t]*)(?<!%)[ \t]*(?:function|classdef)(?:.*?)[^\w]([a-zA-Z]\w*) *(?:\(|(?:%|\n|\.\.\.|$))[\s\S]*?(?=(?:\n)(?<!%)[ \t]*(?:function[^a-zA-Z]|classdef[^a-zA-Z])|$)')
-    option_line_pattern = re.compile(r'%%! *vim-matlab: *(\w+) *\(([^\(]+)\)')
+        r"(?:^|\n[ \t]*)(?<!%)[ \t]*(?:function|classdef)(?:.*?)[^\w]([a-zA-Z]\w*) *(?:\(|(?:%|\n|\.\.\.|$))[\s\S]*?(?=(?:\n)(?<!%)[ \t]*(?:function[^a-zA-Z]|classdef[^a-zA-Z])|$)"
+    )
+    option_line_pattern = re.compile(r"%%! *vim-matlab: *(\w+) *\(([^\(]+)\)")
 
     @staticmethod
     def get_current_file_path():
@@ -26,6 +28,14 @@ class PythonVimUtils(object):
     @staticmethod
     def edit_file(path):
         vim.command("silent e! {}".format(path))
+
+    @staticmethod
+    def cursor_at_bottom():
+        current_win_id = vim.eval("win_getid()")
+        matlab_id = vim.eval("g:matlab_window_id")
+        vim.command(f"silent! call win_gotoid({matlab_id})")
+        vim.command("normal! G")
+        vim.command(f"silent! call win_gotoid({current_win_id})")
 
     @staticmethod
     def get_cursor():
@@ -42,14 +52,14 @@ class PythonVimUtils(object):
     @staticmethod
     def get_selection(ignore_matlab_comments=True):
         buf = vim.current.buffer
-        row1, col1 = buf.mark('<')
-        row2, col2 = buf.mark('>')
-        lines = buf[row1 - 1:row2]
+        row1, col1 = buf.mark("<")
+        row2, col2 = buf.mark(">")
+        lines = buf[row1 - 1 : row2]
         if len(lines) == 1:
-            lines[0] = lines[0][col1:col2 + 1]
+            lines[0] = lines[0][col1 : col2 + 1]
         else:
             lines[0] = lines[0][col1:]
-            lines[-1] = lines[-1][:col2 + 1]
+            lines[-1] = lines[-1][: col2 + 1]
 
         if ignore_matlab_comments:
             return PythonVimUtils.trim_matlab_code(lines)
@@ -66,7 +76,7 @@ class PythonVimUtils(object):
 
     @staticmethod
     def is_current_buffer_modified():
-        return vim.eval('&modified') == 1
+        return vim.eval("&modified") == 1
 
     @staticmethod
     def echo_text(string):
@@ -91,7 +101,7 @@ class PythonVimUtils(object):
                 cell_end -= 1
                 break
 
-        lines = lines[cell_start:cell_end + 1]
+        lines = lines[cell_start : cell_end + 1]
         if ignore_matlab_comments:
             return PythonVimUtils.trim_matlab_code(lines)
         return lines
@@ -106,7 +116,7 @@ class PythonVimUtils(object):
 
         for line in lines:
             line = PythonVimUtils.comment_pattern.sub(r"\1", line).strip()
-            if line in ('', '...'):
+            if line in ("", "..."):
                 continue
 
             has_ellipsis_suffix = ellipsis.match(line)
@@ -172,13 +182,13 @@ class PythonVimUtils(object):
             m = PythonVimUtils.option_line_pattern.match(line)
             if m is None:
                 break
-            options[m.group(1)] = [s.strip() for s in m.group(2).split(',')]
+            options[m.group(1)] = [s.strip() for s in m.group(2).split(",")]
         return options
 
     @staticmethod
     def get_function_blocks():
         lines = vim.current.buffer
-        content = '\n'.join(lines)
+        content = "\n".join(lines)
         function_blocks = {}
         for m in PythonVimUtils.function_block_pattern.finditer(content):
             function_blocks[m.group(1)] = m.group(0).strip()
