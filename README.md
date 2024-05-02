@@ -1,149 +1,173 @@
 vim-matlab
 ===========
 
-An alternative to Matlab's default editor for Vim users.
+An alternative to Matlab's default editor for Vim users. I currently use it to control Comsol by running ```comsol mphserver```, launching the MATLAB REPL in Vim and running ```mphstart``` to connect them. 
+Edited to function with Python 3 with fixes from Thieso from this [issue](https://github.com/daeyun/vim-matlab/issues/36).
 
-## FAQ
+Read the readme [upstream readme](https://github.com/daeyun/vim-matlab) for an overview.
 
-#### How do I run code cells (`%%` blocks)?
-
-In Normal mode, press `<Enter>` or `<C-m>`. The editor will parse the code in the current cell and send to MATLAB for evaluation.
-
-#### What if I need MATLAB's GUI features?
-
-Most MATLAB windows can be launched through commands; even in `-nodisplay` mode. For example, [workspace](https://www.mathworks.com/help/matlab/ref/workspace.html) command opens the Workspace browser.
-
-<img width="400" alt="screenshot 2016-08-18 20 57 56" src="https://cloud.githubusercontent.com/assets/1250682/17795452/82df34fe-6586-11e6-8049-6fc6712c9b0e.png">
-
-If you need to access the debugger, use [edit](https://www.mathworks.com/help/matlab/ref/edit.html) to open the default GUI editor.
-
-#### Error: `E492: Not an editor command`
-
-If this the first time you're installing a Python plugin written for Neovim, you should install [python-client](https://github.com/neovim/python-client) and run `:UpdateRemotePlugins`.
-
-The recommended way to install this plugin is to use the plugin manager [vim-plug](https://github.com/junegunn/vim-plug) and add this to your `.vimrc` or `init.vim`:
-
-```vim
-function! DoRemote(arg)
-  UpdateRemotePlugins
-endfunction
-
-Plug 'daeyun/vim-matlab', { 'do': function('DoRemote') }
-```
+In this fork, a few (likely badly implemented) changes are introduced. For example, when code is run, the cursor moves to the REPL, down to the bottom and back to the window you were in previously - this way, you can see the last executed code. If you are not running the split in vim, this might not work.
 
 
-
-## Usage
-
-`vim-matlab` works by remotely controlling a CLI Matlab instance (launched by `vim-matlab-server.py`).
-
-Run
+Moreover, the default keymaps are disabled. In their place, I use the below functions and keymaps written in Lua to ease cell navigation.
 
 ```
-./scripts/vim-matlab-server.py
+-- Function to jump to the next occurrence of a line containing "%%" as the only content
+local function jump_to_next_cell_matlab()
+  local current_line = vim.fn.line('.') -- Get current line number
+  local total_lines = vim.fn.line('$')  -- Get total number of lines
+  local found = false
+
+  -- Loop through lines from the current line to the end
+  for line = current_line + 1, total_lines do
+    local line_content = vim.fn.getline(line)
+    -- Check if the line contains exactly "%%" with optional leading/trailing whitespace
+    if string.match(line_content, "^%s*%%%%%s*$") then
+      vim.fn.cursor(line + 1, 0) -- Move cursor to the beginning of the line below
+      found = true
+      break
+    end
+  end
+
+  -- If no occurrence is found, move cursor to the bottom of the file
+  if not found then
+    vim.fn.cursor(total_lines, 1) -- Move cursor to the last line
+  end
+end
+
+-- Function to jump to the second-previous occurrence of a line containing "%%" as the only content
+local function jump_to_previous_cell_matab()
+  local current_line = vim.fn.line('.') -- Get current line number
+  local found_count = 0
+  local found = false
+
+  -- Loop backward from the current line to the beginning
+  for line = current_line - 1, 1, -1 do
+    local line_content = vim.fn.getline(line)
+    -- Check if the line contains exactly "%%" with optional leading/trailing whitespace
+    if string.match(line_content, "^%s*%%%%%s*$") then
+      found_count = found_count + 1
+      if found_count == 2 then
+        vim.fn.cursor(line + 1, 0) -- Move cursor to the beginning of the line below the second-previous occurrence
+        found = true
+        break
+      end
+    end
+  end
+
+  -- If no second-previous occurrence is found, move cursor to the top of the file
+  if not found then
+    vim.fn.cursor(1, 1) -- Move cursor to the first line
+  end
+end
+
+-- Function to find and delete the next occurrence of a line containing "%%" as the only content
+local function merge_below()
+  local current_line = vim.fn.line('.')       -- Get current line number
+  local total_lines = vim.fn.line('$')        -- Get total number of lines
+  local saved_cursor_pos = vim.fn.getpos('.') -- Save current cursor position
+
+  -- Loop through lines from the current line to the end
+  for line = current_line + 1, total_lines do
+    local line_content = vim.fn.getline(line)
+    -- Check if the line contains exactly "%%" with optional leading/trailing whitespace
+    if string.match(line_content, "^%s*%%%%%s*$") then
+      -- Delete the line below the current line if found
+      vim.cmd(tostring(line) .. "delete")
+
+      -- Restore cursor position after deletion
+      vim.fn.setpos('.', saved_cursor_pos)
+      break
+    end
+  end
+end
+
+-- Function to find and delete the previous occurrence of a line containing "%%" as the only content
+local function merge_above()
+  local current_line = vim.fn.line('.')       -- Get current line number
+  local saved_cursor_pos = vim.fn.getpos('.') -- Save current cursor position
+
+  -- Loop backward from the current line to the beginning
+  for line = current_line - 1, 1, -1 do
+    local line_content = vim.fn.getline(line)
+    -- Check if the line contains exactly "%%" with optional leading/trailing whitespace
+    if string.match(line_content, "^%s*%%%%%s*$") then
+      -- Delete the line above the current line if found
+      vim.cmd(tostring(line) .. "delete")
+
+      -- Restore cursor position after deletion
+      vim.fn.setpos('.', saved_cursor_pos)
+      break
+    end
+  end
+end
+
+
+
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "matlab",
+  callback = function(event)
+  
+    vim.keymap.set("n", "<leader>os", ":MatlabLaunchServer<CR>",
+      { silent = true, buffer = event.buf, desc = "Start MATLAB server" })
+
+    vim.keymap.set(
+      "n",
+      "<leader>cs",
+      ":MatlabNormalModeCreateCell<cr>",
+      { silent = true, buffer = event.buf, desc = "Split cell" }
+    )
+
+    vim.keymap.set(
+      "n",
+      "<leader><Space>",
+      ":MatlabCliRunCell<cr>",
+      { silent = true, noremap = true, buffer = event.buf, desc = "Send cell" })
+
+    vim.keymap.set("v", "<leader><Space>", "<Esc>:MatlabCliRunSelection<cr>",
+      { silent = true, buffer = event.buf, desc = "Send selection" })
+
+    vim.keymap.set("n", "<leader>ol", ":MatlabCliRunLine<cr>",
+      { silent = true, buffer = event.buf, desc = "Send line" })
+
+    vim.keymap.set("n", "<leader>oc", ":MatlabCliCancel<cr>",
+      { silent = true, buffer = event.buf, desc = "Cancel execution" })
+
+    vim.keymap.set("n", "<leader>j", function()
+        jump_to_next_cell_matlab()
+      end,
+      {
+        silent = true,
+        buffer = event.buf,
+        desc = "Jump to next cell",
+      })
+
+    vim.keymap.set("n", "<leader>k", function()
+        jump_to_previous_cell_matab()
+      end,
+      {
+        silent = true,
+        buffer = event.buf,
+        desc = "Jump to previous cell",
+      })
+
+    vim.keymap.set("n", "<leader>cM", function()
+        merge_above()
+      end,
+      {
+        silent = true,
+        buffer = event.buf,
+        desc = "Merge above",
+      })
+
+    vim.keymap.set("n", "<leader>cm", function()
+        merge_below()
+      end,
+      {
+        silent = true,
+        buffer = event.buf,
+        desc = "Merge below",
+      })
+  end,
+})
 ```
-
-This will start a Matlab REPL and redirect commands received from Vim to Matlab. When Matlab crashes (e.g. segfault during MEX development), it will launch another process.
-
-Then open Vim in another terminal and start editing .m files.
-
-Alternatively, launch a server instance from Vim using `:MatlabLaunchServer`. The server will be launched either in a Neovim terminal buffer or a tmux split (see [g:matlab_server_launcher](#configuration)).
-
-- `:MatlabCliCancel` (\<leader\>c) tells the server to send SIGINT to Matlab, canceling current operation.
-
-- `:MatlabCliRunSelection` executes the highlighted Matlab code.
-
-- `:MatlabCliRunCell` executes code in the current cell — i.e. `%%` blocks. Similar to Ctrl-Enter in the Matlab editor.
-
-- `:MatlabCliOpenInEditor` (,e) opens current buffer in a Matlab editor window. e.g. to access the debugger.
-
-- `:MatlabCliHelp` (,h) prints help message for the word under the cursor.
-
-- `:MatlabNormalModeCreateCell` (C-l) inserts a cell marker above the current line.
-
-- `:MatlabVisualModeCreateCell` (C-l) inserts cell markers above and below the visual selection.
-
-- `:MatlabInsertModeCreateCell` (C-l) inserts a cell marker at the beginning of the current line.
-
-- `:MatlabLaunchServer` launches a server instance in a Vim or tmux split.
-
-See [this file](rplugin/python/vim_matlab/__init__.py) for a list of available commands, and [vim-matlab.vim](ftplugin/matlab/vim-matlab.vim) for default key bindings.
-
-![Screenshot](/docs/images/screenshot.png)
-
-
-
-## Installation
-
-1. Install the python3 client for Neovim:
-
-```
-pip3 install neovim
-```
-
-2. Add to `.vimrc` (or `~/.config/nvim/init.vim`). e.g. using [vim-plug](https://github.com/junegunn/vim-plug):
-
-```
-Plug 'daeyun/vim-matlab'
-```
-
-3. Register the plugin inside Neovim:
-
-```
-:UpdateRemotePlugins
-```
-
-### Optional steps (recommended)
-
-4. Install a snippet engine such as [SirVer/ultisnips](https://github.com/SirVer/ultisnips) or [vim-snipmate](https://github.com/garbas/vim-snipmate) to use the [included snippets](https://github.com/daeyun/vim-matlab/blob/master/snippets/matlab.snippets). We also recommend installing [vim-snippets](https://github.com/honza/vim-snippets). We welcome any contributions to extend the `matlab.snippets` file.
-
-5. Install pexpect for improved interactivity with the MATLAB console (e.g. tab completion):
-
-```
-pip3 install pexpect
-```
-
-
-## Configuration
-
-Use `g:matlab_auto_mappings` to control whether the plugin automatically generates key mappings (default = 1).
-
-```vim
-let g:matlab_auto_mappings = 0 "automatic mappings disabled
-let g:matlab_auto_mappings = 1 "automatic mappings enabled
-```
-
-Use `g:matlab_server_launcher` to control whether `:MatlabLaunchServer` uses a Vim or tmux split (default = `'vim'`).
-
-```vim
-let g:matlab_server_launcher = 'vim'  "launch the server in a Neovim terminal buffer
-let g:matlab_server_launcher = 'tmux' "launch the server in a tmux split
-```
-
-Use `g:matlab_server_split` to control whether `:MatlabLaunchServer` uses a vertical or horizontal split (default = `'vertical'`).
-
-```vim
-let g:matlab_server_split = 'vertical'   "launch the server in a vertical split
-let g:matlab_server_split = 'horizontal' "launch the server in a horizontal split
-```
-
-
-## Development
-
-Set up a symlink so that the plugin directory points to your repository.
-
-```
-git clone git@github.com:daeyun/vim-matlab.git
-rm -r ~/.vim/plugged/vim-matlab
-ln -nsf $(pwd)/vim-matlab ~/.vim/plugged/
-```
-
-After changing the code, run `scripts/reload-vim.sh` (optionally pass in a file to open) to reload.
-
-For testing, install [pytest](https://github.com/pytest-dev/pytest/) and run `scripts/run-tests.sh`.
-
-
-## Recommended Plugins
-
-- [MatlabFilesEdition](http://www.vim.org/scripts/script.php?script_id=2407)
-- [matchit.zip](http://www.vim.org/scripts/script.php?script_id=39)
