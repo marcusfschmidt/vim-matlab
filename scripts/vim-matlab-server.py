@@ -64,21 +64,49 @@ class Matlab:
         else:
             command = "{}\n".format(code.strip())
 
+        # # The maximum number of characters allowed on a single line in Matlab's CLI is 4096.
+        # delim = "\n"
+        # line_size = 4095 - len(delim)
+        # command = delim.join(
+        #     [command[i : i + line_size] for i in range(0, len(command), line_size)]
+        # )
+
         # The maximum number of characters allowed on a single line in Matlab's CLI is 4096.
         delim = "\n"
-        line_size = 4095 - len(delim)
-        command = delim.join(
-            [command[i : i + line_size] for i in range(0, len(command), line_size)]
-        )
+        max_line_length = 4095 - len(delim)
+
+        # Initialize list to store command parts
+        command_parts = []
+
+        # Start iterating from the beginning of the command
+        start_index = 0
+
+        while start_index < len(command):
+            # Calculate the end index for the current part
+            end_index = start_index + max_line_length
+
+            # Adjust end_index to the nearest comma within the maximum line length
+            if end_index < len(command):
+                while end_index > start_index and command[end_index] != ",":
+                    end_index -= 1
+
+            # Add the current part to the list of command parts
+            command_parts.append(command[start_index : end_index + 1])
+
+            # Update start_index to the next character after the current part
+            start_index = end_index + 1
+
+        # Join the command parts with the delimiter
+        command_to_send = delim.join(command_parts)
 
         global hide_until_newline
         while num_retry < 3:
             try:
                 if use_pexpect:
                     hide_until_newline = True
-                    self.proc.send(command)
+                    self.proc.send(command_to_send)
                 else:
-                    self.proc.stdin.write(command)
+                    self.proc.stdin.write(command_to_send)
                     self.proc.stdin.flush()
                 break
             except Exception as ex:
