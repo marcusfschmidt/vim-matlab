@@ -87,7 +87,7 @@ class Matlab:
 
             # Adjust end_index to the nearest comma within the maximum line length
             if end_index < len(command):
-                while end_index > start_index and command[end_index] != ",":
+                while end_index > start_index and command[end_index] != ";":
                     end_index -= 1
 
             # Add the current part to the list of command parts
