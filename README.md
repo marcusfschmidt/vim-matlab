@@ -20,7 +20,7 @@ Install using Lazyvim:
 In this fork, a few (likely badly implemented) changes are introduced. For example, when code is run, the cursor moves to the REPL, down to the bottom and back to the window you were in previously - this way, you can see the last executed code. If you are not running the split in vim, this might not work.
 
 
-Moreover, the default keymaps are disabled. In their place, I use the below functions and keymaps written in Lua to ease cell navigation.
+Moreover, the default keymaps are disabled. In their place, I use the below functions and keymaps written in Lua to ease cell navigation and deletion. A lot of the logic is the same in the various functions and could be factored into dedicated helper functions, but I am lazy.
 
 ```
 -- Function to jump to the next occurrence of a line containing "%%" as the only content
@@ -115,10 +115,73 @@ end
 
 
 
-vim.api.nvim_create_autocmd("FileType", {
+
+
+
+
+-- Function to find and delete the current cell bounded by "%%" if the line ONLY has %%
+local function delete_current_cell()
+  local current_line = vim.fn.line('.')       -- Get current line number
+  local saved_cursor_pos = vim.fn.getpos('.') -- Save current cursor position
+
+  local start_line, end_line                  -- Variables to store start and end lines of the cell
+
+  -- Check if the cursor is on a cell boundary
+  local current_line_content = vim.fn.getline(current_line)
+  local end_line_offset = 0
+  if string.match(current_line_content, "^%s*%%%%%s*$") then
+    -- Adjust start_line to ensure we don't delete the upper cell boundary
+    start_line = current_line + 1
+  else
+    -- Loop backward to find the start of the cell
+    for line = current_line, 1, -1 do
+      local line_content = vim.fn.getline(line)
+      -- Check if the line contains "%%" to mark the start of the cell
+      if string.match(line_content, "^%s*%%%%%s*$") then
+        start_line = line + 1
+        break
+      end
+      -- If beginning of file is reached, set start_line to 1
+      if line == 1 then
+        start_line = 1
+        end_line_offset = -1
+        break
+      end
+    end
+  end
+
+  -- Loop forward to find the end of the cell
+  for line = start_line, vim.fn.line('$') do
+    local line_content = vim.fn.getline(line)
+    -- Check if the line contains "%%" to mark the end of the cell
+    if string.match(line_content, "^%s*%%%%%s*$") then
+      end_line = line
+      break
+    end
+    -- If end of file is reached, set end_line to the last line
+    if line == vim.fn.line('$') then
+      end_line = vim.fn.line('$')
+      break
+    end
+  end
+
+  -- If both start and end lines are found, delete the cell
+  if start_line and end_line then
+    -- Delete lines from start_line to end_line
+    vim.cmd("silent" .. tostring(start_line + 1) .. "," .. tostring(end_line + end_line_offset) .. "delete")
+
+    -- Restore cursor position after deletion
+    vim.fn.setpos('.', saved_cursor_pos)
+  end
+end
+
+
+
+
+
+vim.api.nvim_create_autocmd({ "FileType" }, {
   pattern = "matlab",
   callback = function(event)
-  
     vim.keymap.set("n", "<leader>os", ":MatlabLaunchServer<CR>",
       { silent = true, buffer = event.buf, desc = "Start MATLAB server" })
 
@@ -178,6 +241,15 @@ vim.api.nvim_create_autocmd("FileType", {
         silent = true,
         buffer = event.buf,
         desc = "Merge below",
+      })
+
+    vim.keymap.set("n", "<leader>cd", function()
+        delete_current_cell()
+      end,
+      {
+        silent = true,
+        buffer = event.buf,
+        desc = "Delete cell",
       })
   end,
 })
