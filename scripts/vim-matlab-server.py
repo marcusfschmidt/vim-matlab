@@ -20,6 +20,15 @@ import sys
 import threading
 import time
 from sys import stdin
+import argparse
+
+# Parse command line arguments
+parser = argparse.ArgumentParser(description="Vim-MATLAB Server")
+parser.add_argument("cwd", help="Current working directory of the Vim buffer")
+args = parser.parse_args()
+
+# Change the current working directory
+os.chdir(args.cwd)
 
 hide_until_newline = False
 auto_restart = False
@@ -63,13 +72,6 @@ class Matlab:
             ).format(randvar=rand_var, code=code.strip())
         else:
             command = "{}\n".format(code.strip())
-
-        # # The maximum number of characters allowed on a single line in Matlab's CLI is 4096.
-        # delim = "\n"
-        # line_size = 4095 - len(delim)
-        # command = delim.join(
-        #     [command[i : i + line_size] for i in range(0, len(command), line_size)]
-        # )
 
         # The maximum number of characters allowed on a single line in Matlab's CLI is 4096.
         delim = "\n"
@@ -155,30 +157,11 @@ def status_monitor_thread(matlab):
 
 
 def output_filter(output_string):
-    """
-    If the global variable `hide_until_newline` is True, this function will
-    return an empty string until it sees a string that contains a newline.
-    Used with `pexpect.spawn.interact` and `pexpect.spawn.send` to hide the
-    raw command from being shown.
-
-    :param output_string: String forwarded from MATLAB's stdout. Provided
-    by `pexpect.spawn.interact`.
-    :return: The filtered string.
-    """
     global hide_until_newline
     return output_string
-    # if hide_until_newline:
-    #     if "\n" in output_string:
-    #         hide_until_newline = False
-    #         return output_string[output_string.find("\n") :]
-    #     else:
-    #         return ""
-    # else:
-    #     return output_string
 
 
 def input_filter(input_string):
-    # Detect C-\
     if input_string == "\x1c":
         print_flush("Terminating")
         global auto_restart
@@ -187,7 +170,6 @@ def input_filter(input_string):
 
 
 def forward_input(matlab):
-    """Forward stdin to Matlab.proc's stdin."""
     if use_pexpect:
         matlab.proc.interact(input_filter=input_filter, output_filter=output_filter)
     else:
@@ -202,7 +184,6 @@ def start_thread(target=None, args=()):
 
 
 def print_flush(value, end="\n"):
-    """Manually flush the line if using pexpect."""
     if use_pexpect:
         value += "\b" * len(value)
     sys.stdout.write(value + end)

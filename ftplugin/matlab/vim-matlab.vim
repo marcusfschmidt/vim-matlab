@@ -17,6 +17,7 @@ function! LaunchMatlabServer()
   " Save current buffer ID
   let s:original_win_id = win_getid()
   let s:original_cursor = getpos('.')
+  let s:buffer_cwd = expand('%:p:h')
 
   " Determine the split command based on configuration
   if g:matlab_server_launcher ==? 'tmux'
@@ -34,8 +35,7 @@ function! LaunchMatlabServer()
   endif
 
   " Construct the full command to launch MATLAB server
-  let s:launch_command = s:split_command . s:server_command
-
+  let s:launch_command = s:split_command . s:server_command . ' ' . shellescape(s:buffer_cwd)
   " Execute the command to launch MATLAB server
   execute 'normal! ' . s:launch_command . "\<CR>"
 
